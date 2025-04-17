@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Imágenes con Lápiz</title> <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Estilos generales y tema oscuro (sin cambios) */
+        body { background-color: #1a1a1a; color: #e0e0e0; font-family: 'Inter', sans-serif; }
+        .controls-bg { background-color: #2c2c2c; border-left: 1px solid #444; }
+        label, .control-label { color: #b0b0b0; font-size: 0.875rem; font-weight: 500; }
+        .value-display { color: #ffffff; font-weight: 500; font-size: 0.875rem; }
+        .icon-button { background: none; border: none; color: #b0b0b0; cursor: pointer; padding: 8px; border-radius: 50%; transition: background-color 0.2s, color 0.2s; }
+        .icon-button:hover { background-color: #444; color: #fff; }
+        .icon-button.active { background-color: #4a90e2; color: #fff; }
+        .icon-button:disabled { color: #666; cursor: not-allowed; }
+        .icon-button:disabled:hover { background-color: transparent; }
+
+        .control-group { padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #444; }
+        .control-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .control-group h3 { text-lg font-medium mb-3 text-center text-gray-300 }
+
+        /* Estilo deslizadores (sin cambios) */
+        input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; background: #555; border-radius: 5px; outline: none; opacity: 0.8; transition: opacity .2s; cursor: pointer; margin-top: 8px; }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; background: #4a90e2; border-radius: 50%; cursor: pointer; }
+        input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: #4a90e2; border-radius: 50%; cursor: pointer; border: none; }
+        input[type="range"]:disabled { opacity: 0.5; cursor: not-allowed; }
+        input[type="range"]:disabled::-webkit-slider-thumb { background: #888; }
+        input[type="range"]:disabled::-moz-range-thumb { background: #888; }
+
+        /* Input de color */
+        input[type="color"] {
+            -webkit-appearance: none; -moz-appearance: none; appearance: none;
+            width: 40px; height: 25px; border: 1px solid #555; border-radius: 4px;
+            background-color: transparent; cursor: pointer; padding: 0; overflow: hidden;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
+        input[type="color"]::-moz-color-swatch { border: none; border-radius: 3px; }
+
+
+        /* Contenedor del Canvas */
+        .canvas-wrapper { position: relative; width: 100%; overflow: hidden; background-color: #333; display: flex; align-items: center; justify-content: center; min-height: 300px; }
+        #imageCanvas { max-width: 100%; max-height: 100%; display: block; object-fit: contain; transition: transform 0.3s ease; }
+        /* Cursor para el lápiz */
+        #imageCanvas.pencil-cursor { cursor: crosshair; /* O un cursor de lápiz si tienes uno */ }
+
+
+        /* Input de archivo y botones de acción */
+        input[type="file"] { display: none; }
+        .action-button { border: 1px solid #555; display: inline-block; padding: 8px 16px; width: 100%; cursor: pointer; background-color: #4a90e2; color: white; border-radius: 0.375rem; text-align: center; transition: background-color 0.2s; margin-bottom: 0.5rem; }
+        .action-button:hover { background-color: #3a7bc8; }
+        .action-button:disabled { background-color: #555; cursor: not-allowed; }
+
+        /* Estilos de Recorte (sin cambios) */
+        #cropOverlay { position: absolute; top: 0; left: 0; border: 2px dashed rgba(255, 255, 255, 0.8); background-color: rgba(0, 0, 0, 0.3); cursor: move; box-sizing: border-box; display: none; z-index: 10; }
+        #cropOverlay.active { display: block; }
+        .resize-handle { position: absolute; width: 10px; height: 10px; background-color: rgba(255, 255, 255, 0.9); border: 1px solid #555; box-sizing: border-box; z-index: 11; }
+        .handle-tl { top: -5px; left: -5px; cursor: nwse-resize; } .handle-tr { top: -5px; right: -5px; cursor: nesw-resize; } .handle-bl { bottom: -5px; left: -5px; cursor: nesw-resize; } .handle-br { bottom: -5px; right: -5px; cursor: nwse-resize; } .handle-t { top: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; } .handle-b { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; } .handle-l { left: -5px; top: 50%; transform: translateY(-50%); cursor: ew-resize; } .handle-r { right: -5px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+        #cropActions { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(44, 44, 44, 0.9); padding: 8px 12px; border-radius: 6px; display: none; z-index: 15; gap: 10px; }
+        #cropActions.active { display: flex; }
+        .crop-button { background-color: #4a90e2; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.875rem; transition: background-color 0.2s; }
+        .crop-button:hover { background-color: #3a7bc8; }
+        .crop-button.cancel { background-color: #777; }
+        .crop-button.cancel:hover { background-color: #666; }
+
+        /* Estilos para botones de transformación (sin cambios) */
+        .transform-buttons { display: flex; justify-content: space-around; align-items: center; }
+
+        /* FIX: Estilo para el contenedor del botón de herramienta para mantener en línea */
+        .tool-button-container {
+            display: inline-flex; /* Cambiado a inline-flex */
+            align-items: center;
+            justify-content: center;
+            margin-left: 1rem; /* ml-4 */
+            vertical-align: middle; /* Alinear verticalmente con el texto de al lado */
+        }
+
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gray-900 text-gray-200 font-inter">
+
+    <div class="container mx-auto p-4 max-w-6xl bg-black rounded-lg shadow-xl">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+            <div class="md:col-span-3 bg-black flex items-center justify-center p-4 rounded-l-lg relative">
+                <div class="canvas-wrapper rounded w-full h-full">
+                     <canvas id="imageCanvas" class="rounded"></canvas>
+                     <p id="uploadPrompt" class="absolute inset-0 flex items-center justify-center text-gray-400 z-0">Carga una imagen para empezar</p>
+                     <div id="cropOverlay">
+                         <div class="resize-handle handle-tl"></div> <div class="resize-handle handle-tr"></div>
+                         <div class="resize-handle handle-bl"></div> <div class="resize-handle handle-br"></div>
+                         <div class="resize-handle handle-t"></div> <div class="resize-handle handle-b"></div>
+                         <div class="resize-handle handle-l"></div> <div class="resize-handle handle-r"></div>
+                     </div>
+                     <div id="cropActions">
+                         <button id="applyCropBtn" class="crop-button">Aplicar Recorte</button>
+                         <button id="cancelCropBtn" class="crop-button cancel">Cancelar</button>
+                     </div>
+                </div>
+            </div>
+
+            <div class="md:col-span-1 controls-bg p-6 rounded-r-lg space-y-1 overflow-y-auto max-h-[80vh]">
+                <h2 class="text-xl font-semibold mb-4 text-center text-white sticky top-0 bg-inherit z-10 pb-2">Herramientas</h2>
+
+                <div class="control-group text-center">
+                    <label for="imageLoader" class="action-button"> <i class="fas fa-upload mr-2"></i>Cargar Imagen </label>
+                    <input type="file" id="imageLoader" accept="image/*"/>
+                    <button id="saveImageBtn" class="action-button"> <i class="fas fa-save mr-2"></i>Guardar Imagen </button>
+                 </div>
+
+                 <div class="control-group text-center">
+                     <div class="inline-flex items-center"> <button id="cropToolBtn" class="icon-button" title="Recortar"> <i class="fas fa-crop-alt fa-fw"></i> </button>
+                         <span class="control-label ml-2">Recortar</span>
+                     </div>
+                     <div class="tool-button-container"> <button id="pencilToolBtn" class="icon-button" title="Lápiz"> <i class="fas fa-pencil-alt fa-fw"></i> </button>
+                         <span class="control-label ml-2">Lápiz</span>
+                     </div>
+                 </div>
+
+                 <div id="pencilControls" class="control-group hidden">
+                     <h3>Lápiz</h3>
+                     <div class="space-y-3 mt-2">
+                         <div>
+                            <div class="flex justify-between items-center"> <label for="pencilSize" class="control-label">Tamaño Lápiz</label> <span id="pencilSizeValue" class="value-display">5</span> </div>
+                            <input type="range" id="pencilSize" min="1" max="50" value="5" class="w-full">
+                        </div>
+                         <div class="flex justify-between items-center">
+                            <label for="pencilColorInput" class="control-label">Color</label>
+                            <input type="color" id="pencilColorInput" value="#ffffff">
+                        </div>
+                     </div>
+                 </div>
+
+
+                 <div class="control-group">
+                     <h3>Transformar</h3>
+                     <div class="transform-buttons mt-2">
+                         <button id="rotateLeftBtn" class="icon-button" title="Rotar Izquierda"> <i class="fas fa-undo fa-fw"></i> </button>
+                         <button id="rotateRightBtn" class="icon-button" title="Rotar Derecha"> <i class="fas fa-redo fa-fw"></i> </button>
+                         <button id="flipHorizontalBtn" class="icon-button" title="Voltear Horizontal"> <i class="fas fa-arrows-alt-h fa-fw"></i> </button>
+                          <button id="flipVerticalBtn" class="icon-button" title="Voltear Vertical"> <i class="fas fa-arrows-alt-v fa-fw"></i> </button>
+                     </div>
+                 </div>
+
+                <div class="control-group">
+                     <h3>Ajustes</h3>
+                    <div class="space-y-3 mt-2">
+                        <div> <div class="flex justify-between items-center"> <label for="brightness" class="control-label">Brillo</label> <span id="brightnessValue" class="value-display">100</span> </div> <input type="range" id="brightness" min="0" max="200" value="100" class="w-full"> </div>
+                        <div> <div class="flex justify-between items-center"> <label for="contrast" class="control-label">Contraste</label> <span id="contrastValue" class="value-display">100</span> </div> <input type="range" id="contrast" min="0" max="200" value="100" class="w-full"> </div>
+                        <div> <div class="flex justify-between items-center"> <label for="grayscale" class="control-label">Escala de Grises</label> <span id="grayscaleValue" class="value-display">0</span> </div> <input type="range" id="grayscale" min="0" max="100" value="0" class="w-full"> </div>
+                        <div> <div class="flex justify-between items-center"> <label for="blur" class="control-label">Desenfoque (px)</label> <span id="blurValue" class="value-display">0</span> </div> <input type="range" id="blur" min="0" max="10" step="0.1" value="0" class="w-full"> </div>
+                        <div> <div class="flex justify-between items-center"> <label for="invert" class="control-label">Invertir (%)</label> <span id="invertValue" class="value-display">0</span> </div> <input type="range" id="invert" min="0" max="100" value="0" class="w-full"> </div>
+                    </div>
+                 </div>
+
+                <div class="control-group">
+                     <h3>Filtros</h3>
+                    <div class="space-y-3 mt-2">
+                        <div> <div class="flex justify-between items-center"> <label for="saturation" class="control-label">Saturación</label> <span id="saturationValue" class="value-display">100</span> </div> <input type="range" id="saturation" min="0" max="200" value="100" class="w-full"> </div>
+                        <div> <div class="flex justify-between items-center"> <label for="temperature" class="control-label">Temperatura</label> <span id="temperatureValue" class="value-display">0</span> </div> <input type="range" id="temperature" min="0" max="100" value="0" class="w-full"> </div>
+                        <div> <div class="flex justify-between items-center"> <label for="tint" class="control-label">Tinte</label> <span id="tintValue" class="value-display">0</span> </div> <input type="range" id="tint" min="-180" max="180" value="0" class="w-full"> </div>
+                    </div>
+                 </div>
+
+                 <div class="control-group text-center pt-4">
+                     <button id="resetButton" class="icon-button" title="Restablecer Todo"> <i class="fas fa-sync-alt fa-fw"></i> </button>
+                      <span class="control-label ml-2">Restablecer</span>
+                 </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const imageLoader = document.getElementById('imageLoader');
+        const saveImageBtn = document.getElementById('saveImageBtn');
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.querySelector('.canvas-wrapper');
+        const uploadPrompt = document.getElementById('uploadPrompt');
+        // Filter & Adjustment Controls
+        const saturationSlider = document.getElementById('saturation'); const saturationValueDisplay = document.getElementById('saturationValue');
+        const temperatureSlider = document.getElementById('temperature'); const temperatureValueDisplay = document.getElementById('temperatureValue');
+        const tintSlider = document.getElementById('tint'); const tintValueDisplay = document.getElementById('tintValue');
+        const brightnessSlider = document.getElementById('brightness'); const brightnessValueDisplay = document.getElementById('brightnessValue');
+        const contrastSlider = document.getElementById('contrast'); const contrastValueDisplay = document.getElementById('contrastValue');
+        const grayscaleSlider = document.getElementById('grayscale'); const grayscaleValueDisplay = document.getElementById('grayscaleValue');
+        const blurSlider = document.getElementById('blur'); const blurValueDisplay = document.getElementById('blurValue');
+        const invertSlider = document.getElementById('invert'); const invertValueDisplay = document.getElementById('invertValue');
+        // Tool Buttons
+        const cropToolBtn = document.getElementById('cropToolBtn');
+        const pencilToolBtn = document.getElementById('pencilToolBtn'); // Renombrado
+        const resetButton = document.getElementById('resetButton');
+        // Transform Buttons
+        const rotateLeftBtn = document.getElementById('rotateLeftBtn'); const rotateRightBtn = document.getElementById('rotateRightBtn');
+        const flipHorizontalBtn = document.getElementById('flipHorizontalBtn'); const flipVerticalBtn = document.getElementById('flipVerticalBtn');
+        // Crop Elements
+        const cropOverlay = document.getElementById('cropOverlay'); const cropActions = document.getElementById('cropActions');
+        const applyCropBtn = document.getElementById('applyCropBtn'); const cancelCropBtn = document.getElementById('cancelCropBtn');
+        // Pencil Controls (Nuevos/Renombrados)
+        const pencilControls = document.getElementById('pencilControls');
+        const pencilSizeSlider = document.getElementById('pencilSize'); const pencilSizeValueDisplay = document.getElementById('pencilSizeValue');
+        const pencilColorInput = document.getElementById('pencilColorInput');
+
+        // --- State Variables ---
+        let originalImage = null;
+        let currentImage = null;
+        let currentMode = 'view'; // 'view', 'cropping', 'drawing'
+        let imageSettings = { saturation: 100, temperature: 0, tint: 0, brightness: 100, contrast: 100, grayscale: 0, blur: 0, invert: 0 };
+        let imageTransforms = { rotation: 0, scaleX: 1, scaleY: 1 };
+        let pencilState = { // Renombrado y simplificado
+            size: 5,
+            color: '#ffffff', // Color por defecto
+            isDrawing: false,
+            lastX: 0,
+            lastY: 0
+        };
+        let drawnImageParams = { x: 0, y: 0, width: 0, height: 0 };
+        // Crop state
+        let cropBox = { x: 0, y: 0, width: 100, height: 100 };
+        let isDragging = false, isResizing = false, resizeHandle = null;
+        let startX, startY, startWidth, startHeight, startOffsetX, startOffsetY;
+
+        // --- NO Hidden Canvases Needed for Pencil ---
+
+        // --- Image Loading ---
+        imageLoader.addEventListener('change', handleImageUpload);
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img; currentImage = img;
+                    // No se necesitan canvas ocultos
+                    resetAllSettings();
+                    if (uploadPrompt) uploadPrompt.style.display = 'none';
+                    setActiveTool('view');
+                    drawImageWithFilters(); // Dibujar imagen base inicial
+                    enableControls(true);
+                };
+                img.onerror = () => handleError("Error al cargar la imagen.");
+                img.src = e.target.result;
+            };
+            reader.onerror = () => handleError("Error al leer el archivo.");
+            reader.readAsDataURL(file);
+        }
+        function handleError(message) {
+             console.error(message);
+             if (uploadPrompt) { uploadPrompt.textContent = message; uploadPrompt.style.display = 'flex'; }
+             originalImage = null; currentImage = null;
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             enableControls(false);
+        }
+
+        // --- Enable/Disable Controls ---
+        function enableControls(enable) {
+             const controls = [
+                 saturationSlider, temperatureSlider, tintSlider, brightnessSlider, contrastSlider, grayscaleSlider, blurSlider, invertSlider,
+                 cropToolBtn, pencilToolBtn, // Actualizado
+                 resetButton, rotateLeftBtn, rotateRightBtn, flipHorizontalBtn, flipVerticalBtn,
+                 saveImageBtn,
+                 pencilSizeSlider, pencilColorInput // Actualizado
+             ];
+             controls.forEach(control => control.disabled = !enable);
+             if (!originalImage) {
+                 cropToolBtn.disabled = true; pencilToolBtn.disabled = true; // Actualizado
+                 rotateLeftBtn.disabled = true; rotateRightBtn.disabled = true;
+                 flipHorizontalBtn.disabled = true; flipVerticalBtn.disabled = true;
+                 saveImageBtn.disabled = true;
+                 pencilSizeSlider.disabled = true; pencilColorInput.disabled = true; // Actualizado
+             }
+        }
+
+        // --- Drawing Logic (Simplificada para Lápiz) ---
+        function drawImageWithFilters() {
+            if (!currentImage) return;
+            // console.log("drawImageWithFilters called"); // DEBUG
+            const canvasContainerWidth = canvasWrapper.clientWidth;
+            const canvasContainerHeight = canvasWrapper.clientHeight;
+            const imageAspectRatio = currentImage.naturalWidth / currentImage.naturalHeight;
+            const containerAspectRatio = canvasContainerWidth / canvasContainerHeight;
+            let drawWidth, drawHeight;
+            if (imageAspectRatio > containerAspectRatio) { drawWidth = canvasContainerWidth; drawHeight = drawWidth / imageAspectRatio; }
+            else { drawHeight = canvasContainerHeight; drawWidth = drawHeight * imageAspectRatio; }
+
+            canvas.width = drawWidth; canvas.height = drawHeight;
+            // No se necesita redimensionar canvas de máscara
+
+            drawnImageParams = { x: (canvasContainerWidth - drawWidth) / 2, y: (canvasContainerHeight - drawHeight) / 2, width: drawWidth, height: drawHeight };
+            canvas.style.position = 'absolute'; canvas.style.left = `${drawnImageParams.x}px`; canvas.style.top = `${drawnImageParams.y}px`;
+
+            // --- Dibujar Imagen Base con Filtros ---
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpiar antes de dibujar
+
+            const { saturation, temperature, tint, brightness, contrast, grayscale, blur, invert } = imageSettings;
+            // El filtro blur global sigue existiendo, no interfiere con el lápiz
+            const filterString = `saturate(${saturation}%) sepia(${temperature}%) hue-rotate(${tint}deg) brightness(${brightness}%) contrast(${contrast}%) grayscale(${grayscale}%) blur(${blur}px) invert(${invert}%)`;
+            ctx.filter = filterString;
+            try {
+                // console.log("Drawing base image with filters:", filterString); // DEBUG
+                ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+            } catch (error) { handleError("Error al dibujar la imagen base."); return; }
+            ctx.filter = 'none'; // Resetear filtro del contexto principal
+
+            // --- NO se necesita composición ---
+            // Los dibujos del lápiz se aplicarán directamente sobre este canvas
+            // mediante los event listeners del mouse/touch.
+
+            // Aplicar Transformaciones CSS al final
+            applyTransformations();
+            if (currentMode === 'cropping') { updateCropOverlayPosition(); }
+        }
+
+        // --- Filter & Adjustment Handling ---
+        function applySettings() { /* Sin cambios */
+            if (!currentImage) return;
+            imageSettings.saturation = saturationSlider.value; imageSettings.temperature = temperatureSlider.value; imageSettings.tint = tintSlider.value;
+            imageSettings.brightness = brightnessSlider.value; imageSettings.contrast = contrastSlider.value; imageSettings.grayscale = grayscaleSlider.value;
+            imageSettings.blur = blurSlider.value; imageSettings.invert = invertSlider.value;
+            saturationValueDisplay.textContent = imageSettings.saturation; temperatureValueDisplay.textContent = imageSettings.temperature; tintValueDisplay.textContent = imageSettings.tint;
+            brightnessValueDisplay.textContent = imageSettings.brightness; contrastValueDisplay.textContent = imageSettings.contrast; grayscaleValueDisplay.textContent = imageSettings.grayscale;
+            blurValueDisplay.textContent = parseFloat(imageSettings.blur).toFixed(1); invertValueDisplay.textContent = imageSettings.invert;
+            // FIX: Redibujar la imagen base SIN borrar los dibujos existentes
+            // Esto requiere guardar el estado del canvas (con dibujos) y restaurarlo,
+            // o tener una capa separada para dibujos.
+            // Solución simple por ahora: redibujar TODO. Los dibujos se perderán al aplicar filtros.
+            // Para preservar dibujos: se necesitaría un canvas de dibujo separado.
+            // Vamos a mantenerlo simple por ahora: aplicar filtros redibuja todo.
+            drawImageWithFilters();
+        }
+        function resetSettings() { /* Sin cambios */
+            saturationSlider.value = 100; temperatureSlider.value = 0; tintSlider.value = 0;
+            brightnessSlider.value = 100; contrastSlider.value = 100; grayscaleSlider.value = 0;
+            blurSlider.value = 0; invertSlider.value = 0;
+            applySettings();
+        }
+
+        // --- Transformation Handling ---
+        function applyTransformations() { /* Sin cambios */ if (!currentImage) return; const { rotation, scaleX, scaleY } = imageTransforms; canvas.style.transform = `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})`; }
+        function resetTransforms() { /* Sin cambios */ imageTransforms.rotation = 0; imageTransforms.scaleX = 1; imageTransforms.scaleY = 1; applyTransformations(); }
+        rotateLeftBtn.addEventListener('click', () => { /* Sin cambios */ if (!currentImage) return; imageTransforms.rotation = (imageTransforms.rotation - 90 + 360) % 360; applyTransformations(); });
+        rotateRightBtn.addEventListener('click', () => { /* Sin cambios */ if (!currentImage) return; imageTransforms.rotation = (imageTransforms.rotation + 90) % 360; applyTransformations(); });
+        flipHorizontalBtn.addEventListener('click', () => { /* Sin cambios */ if (!currentImage) return; imageTransforms.scaleX *= -1; applyTransformations(); });
+        flipVerticalBtn.addEventListener('click', () => { /* Sin cambios */ if (!currentImage) return; imageTransforms.scaleY *= -1; applyTransformations(); });
+
+
+        // --- Reset All ---
+        function resetAllSettings() {
+            if (!originalImage) return;
+            // console.log("Resetting all settings"); // DEBUG
+            setActiveTool('view');
+            currentImage = originalImage;
+            resetSettings();
+            resetTransforms();
+            // Resetear estado del lápiz
+            pencilState.isDrawing = false;
+            pencilSizeSlider.value = 5;
+            pencilColorInput.value = '#ffffff';
+            updatePencilControls(false); // Actualizar estado sin redibujar
+            // Limpiar canvas principal y redibujar imagen original
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawImageWithFilters();
+        }
+        resetButton.addEventListener('click', resetAllSettings);
+
+        // --- Tool Activation ---
+        function setActiveTool(tool) {
+            // console.log("Setting active tool:", tool); // DEBUG
+            currentMode = tool;
+            cropToolBtn.classList.remove('active');
+            pencilToolBtn.classList.remove('active'); // Actualizado
+            cropOverlay.classList.remove('active');
+            cropActions.classList.remove('active');
+            pencilControls.classList.add('hidden'); // Actualizado
+            canvas.classList.remove('pencil-cursor'); // Actualizado
+
+            if (tool === 'cropping') {
+                cropToolBtn.classList.add('active');
+                canvas.style.transform = '';
+                const canvasContainerWidth = canvasWrapper.clientWidth; const canvasContainerHeight = canvasWrapper.clientHeight;
+                const imageAspectRatio = currentImage.naturalWidth / currentImage.naturalHeight; const containerAspectRatio = canvasContainerWidth / canvasContainerHeight;
+                let drawWidth, drawHeight;
+                if (imageAspectRatio > containerAspectRatio) { drawWidth = canvasContainerWidth; drawHeight = drawWidth / imageAspectRatio; } else { drawHeight = canvasContainerHeight; drawWidth = drawHeight * imageAspectRatio; }
+                drawnImageParams = { x: (canvasContainerWidth - drawWidth) / 2, y: (canvasContainerHeight - drawHeight) / 2, width: drawWidth, height: drawHeight };
+                const initialWidth = drawnImageParams.width * 0.5; const initialHeight = drawnImageParams.height * 0.5;
+                cropBox = { x: drawnImageParams.x + (drawnImageParams.width - initialWidth) / 2, y: drawnImageParams.y + (drawnImageParams.height - initialHeight) / 2, width: initialWidth, height: initialHeight };
+                updateCropOverlayStyle();
+                cropOverlay.classList.add('active');
+                cropActions.classList.add('active');
+                disableInputsForTool(true);
+            } else if (tool === 'drawing') { // Actualizado
+                pencilToolBtn.classList.add('active');
+                pencilControls.classList.remove('hidden');
+                canvas.classList.add('pencil-cursor');
+                disableInputsForTool(true);
+            } else { // tool === 'view'
+                applyTransformations();
+                disableInputsForTool(false);
+            }
+        }
+
+        cropToolBtn.addEventListener('click', () => { if (!currentImage) return; setActiveTool('cropping'); });
+        pencilToolBtn.addEventListener('click', () => { if (!currentImage) return; setActiveTool('drawing'); }); // Actualizado
+
+        function disableInputsForTool(disabled) {
+             [saturationSlider, temperatureSlider, tintSlider, brightnessSlider, contrastSlider, grayscaleSlider, blurSlider, invertSlider] .forEach(slider => slider.disabled = disabled);
+             [rotateLeftBtn, rotateRightBtn, flipHorizontalBtn, flipVerticalBtn, saveImageBtn, resetButton] .forEach(btn => btn.disabled = disabled);
+             // Deshabilitar botones de otras herramientas
+             if (currentMode === 'cropping') pencilToolBtn.disabled = disabled; else pencilToolBtn.disabled = !originalImage || false; // Habilitar si no está activo y hay imagen
+             if (currentMode === 'drawing') cropToolBtn.disabled = disabled; else cropToolBtn.disabled = !originalImage || false; // Habilitar si no está activo y hay imagen
+
+             // Habilitar/deshabilitar controles de la herramienta activa
+             if (currentMode === 'drawing') {
+                 pencilSizeSlider.disabled = false;
+                 pencilColorInput.disabled = false;
+             } else {
+                 pencilSizeSlider.disabled = true;
+                 pencilColorInput.disabled = true;
+             }
+        }
+
+        // --- Cropping Mode Logic ---
+        applyCropBtn.addEventListener('click', applyCrop);
+        cancelCropBtn.addEventListener('click', () => setActiveTool('view'));
+
+        function updateCropOverlayStyle() { /* Sin cambios */ cropBox.x = Math.max(drawnImageParams.x, cropBox.x); cropBox.y = Math.max(drawnImageParams.y, cropBox.y); if (cropBox.x + cropBox.width > drawnImageParams.x + drawnImageParams.width) { cropBox.width = drawnImageParams.x + drawnImageParams.width - cropBox.x; } if (cropBox.y + cropBox.height > drawnImageParams.y + drawnImageParams.height) { cropBox.height = drawnImageParams.y + drawnImageParams.height - cropBox.y; } cropBox.width = Math.max(20, cropBox.width); cropBox.height = Math.max(20, cropBox.height); cropOverlay.style.left = `${cropBox.x}px`; cropOverlay.style.top = `${cropBox.y}px`; cropOverlay.style.width = `${cropBox.width}px`; cropOverlay.style.height = `${cropBox.height}px`; }
+        function updateCropOverlayPosition() { /* Sin cambios */ updateCropOverlayStyle(); }
+        cropOverlay.addEventListener('mousedown', startDragOrResize);
+        function startDragOrResize(e) { /* Sin cambios */ if (currentMode !== 'cropping' || !currentImage) return; e.preventDefault(); startX = e.clientX; startY = e.clientY; startWidth = cropBox.width; startHeight = cropBox.height; startOffsetX = cropBox.x; startOffsetY = cropBox.y; const target = e.target; if (target.classList.contains('resize-handle')) { isResizing = true; isDragging = false; resizeHandle = target.classList[1]; } else if (target === cropOverlay) { isDragging = true; isResizing = false; } if (isDragging || isResizing) { document.addEventListener('mousemove', handleMove); document.addEventListener('mouseup', stopDragOrResize); } }
+        function handleMove(e) { /* Sin cambios */ if (!isDragging && !isResizing) return; e.preventDefault(); const dx = e.clientX - startX; const dy = e.clientY - startY; if (isDragging) { cropBox.x = startOffsetX + dx; cropBox.y = startOffsetY + dy; } else if (isResizing) { switch (resizeHandle) { case 'handle-tl': cropBox.x = startOffsetX + dx; cropBox.y = startOffsetY + dy; cropBox.width = startWidth - dx; cropBox.height = startHeight - dy; break; case 'handle-tr': cropBox.y = startOffsetY + dy; cropBox.width = startWidth + dx; cropBox.height = startHeight - dy; break; case 'handle-bl': cropBox.x = startOffsetX + dx; cropBox.width = startWidth - dx; cropBox.height = startHeight + dy; break; case 'handle-br': cropBox.width = startWidth + dx; cropBox.height = startHeight + dy; break; case 'handle-t': cropBox.y = startOffsetY + dy; cropBox.height = startHeight - dy; break; case 'handle-b': cropBox.height = startHeight + dy; break; case 'handle-l': cropBox.x = startOffsetX + dx; cropBox.width = startWidth - dx; break; case 'handle-r': cropBox.width = startWidth + dx; break; } if (cropBox.width < 0) { cropBox.x += cropBox.width; cropBox.width = Math.abs(cropBox.width); } if (cropBox.height < 0) { cropBox.y += cropBox.height; cropBox.height = Math.abs(cropBox.height); } } updateCropOverlayStyle(); }
+        function stopDragOrResize() { /* Sin cambios */ if (isDragging || isResizing) { isDragging = false; isResizing = false; resizeHandle = null; document.removeEventListener('mousemove', handleMove); document.removeEventListener('mouseup', stopDragOrResize); updateCropOverlayStyle(); } }
+        function applyCrop() {
+            if (!currentImage || currentMode !== 'cropping') return;
+            // console.log("Applying crop"); // DEBUG
+            const scaleX = currentImage.naturalWidth / drawnImageParams.width; const scaleY = currentImage.naturalHeight / drawnImageParams.height;
+            const sx = (cropBox.x - drawnImageParams.x) * scaleX; const sy = (cropBox.y - drawnImageParams.y) * scaleY;
+            const sWidth = cropBox.width * scaleX; const sHeight = cropBox.height * scaleY;
+             const tempCanvas = document.createElement('canvas'); const tempCtx = tempCanvas.getContext('2d');
+             tempCanvas.width = Math.max(1, sWidth); tempCanvas.height = Math.max(1, sHeight);
+             try { tempCtx.drawImage( originalImage, sx, sy, sWidth, sHeight, 0, 0, tempCanvas.width, tempCanvas.height ); }
+             catch (error) { handleError("Error al crear la imagen recortada."); setActiveTool('view'); return; }
+             const croppedImage = new Image();
+             croppedImage.onload = () => {
+                 currentImage = croppedImage; // Update base image
+                 // No se necesita limpiar máscara
+                 setActiveTool('view'); // Exit cropping mode
+                 // FIX: Redibujar la imagen base *después* de salir del modo recorte
+                 // Esto asegura que los dibujos previos (si los hubiera) se borren.
+                 drawImageWithFilters();
+            };
+             croppedImage.onerror = () => { handleError("Error al cargar la imagen recortada."); setActiveTool('view'); };
+             croppedImage.src = tempCanvas.toDataURL();
+        }
+
+        // --- Pencil Drawing Logic (Nuevo/Adaptado) ---
+        function updatePencilControls(redraw = false) { // redraw flag no es necesario aquí
+            pencilState.size = pencilSizeSlider.value;
+            pencilState.color = pencilColorInput.value; // Leer color del input
+            pencilSizeValueDisplay.textContent = pencilState.size;
+            // No es necesario redibujar aquí, solo actualizar estado
+        }
+        pencilSizeSlider.addEventListener('input', () => updatePencilControls());
+        pencilColorInput.addEventListener('input', () => updatePencilControls()); // Actualizar estado al cambiar color
+
+
+        // Event listeners para dibujar (Lápiz)
+        canvasWrapper.addEventListener('mousedown', startDrawing); // Renombrado
+        canvasWrapper.addEventListener('mousemove', draw);      // Renombrado
+        document.addEventListener('mouseup', stopDrawing); // Renombrado
+        canvasWrapper.addEventListener('mouseleave', stopDrawing); // Renombrado
+
+        function getMousePos(evt) { /* Sin cambios */
+            const rect = canvas.getBoundingClientRect(); const mouseX = evt.clientX - rect.left; const mouseY = evt.clientY - rect.top;
+            const rectWidth = rect.width || 1; const rectHeight = rect.height || 1;
+            const canvasX = mouseX * (canvas.width / rectWidth); const canvasY = mouseY * (canvas.height / rectHeight);
+            return { x: canvasX, y: canvasY };
+        }
+
+        function startDrawing(e) { // Renombrado
+            if (currentMode !== 'drawing') return; // Solo dibujar en modo lápiz
+            // console.log("startDrawing"); // DEBUG
+            pencilState.isDrawing = true;
+            const pos = getMousePos(e);
+            [pencilState.lastX, pencilState.lastY] = [pos.x, pos.y];
+            // Opcional: dibujar un punto inicial si se quiere
+            // drawPoint(pos.x, pos.y);
+        }
+
+        function draw(e) { // Renombrado
+            if (currentMode !== 'drawing' || !pencilState.isDrawing) return;
+            // console.log("draw"); // DEBUG
+            const pos = getMousePos(e);
+            // Dibujar línea directamente en el canvas principal (ctx)
+            drawLine(pencilState.lastX, pencilState.lastY, pos.x, pos.y);
+            [pencilState.lastX, pencilState.lastY] = [pos.x, pos.y];
+            // No se necesita llamar a drawImageWithFilters aquí, el dibujo es persistente
+        }
+
+        function stopDrawing() { // Renombrado
+            if (currentMode !== 'drawing' || !pencilState.isDrawing) return;
+            // console.log("stopDrawing"); // DEBUG
+            pencilState.isDrawing = false;
+            // Resetear lastX/lastY para el próximo trazo
+             pencilState.lastX = 0;
+             pencilState.lastY = 0;
+        }
+
+        // function drawPoint(x, y) { // Dibuja un punto (útil para click simple)
+        //      ctx.fillStyle = pencilState.color;
+        //      ctx.beginPath();
+        //      ctx.arc(x, y, pencilState.size / 2, 0, Math.PI * 2);
+        //      ctx.fill();
+        // }
+
+         function drawLine(x1, y1, x2, y2) { // Dibuja línea en canvas principal
+             // console.log(`Drawing line on main ctx from (${x1.toFixed(1)}, ${y1.toFixed(1)}) to (${x2.toFixed(1)}, ${y2.toFixed(1)})`); // DEBUG
+             ctx.strokeStyle = pencilState.color;
+             ctx.lineWidth = pencilState.size;
+             ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+             // Asegurar que no estamos en modo filtro (aunque ya se resetea en drawImageWithFilters)
+             ctx.filter = 'none';
+             // Usar modo de composición normal
+             ctx.globalCompositeOperation = 'source-over';
+             ctx.beginPath();
+             ctx.moveTo(x1, y1);
+             ctx.lineTo(x2, y2);
+             ctx.stroke();
+         }
+
+
+        // --- Save Image (Simplificado para Lápiz) ---
+        saveImageBtn.addEventListener('click', saveImage);
+        function saveImage() {
+            if (!currentImage) return;
+            // console.log("Saving image..."); // DEBUG
+            const link = document.createElement('a');
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            const sourceWidth = currentImage.naturalWidth;
+            const sourceHeight = currentImage.naturalHeight;
+            const rotation = imageTransforms.rotation;
+            let canvasWidth = sourceWidth; let canvasHeight = sourceHeight;
+            if (rotation === 90 || rotation === 270) { canvasWidth = sourceHeight; canvasHeight = sourceWidth; }
+            tempCanvas.width = canvasWidth; tempCanvas.height = canvasHeight;
+
+            // 1. Transformaciones al Contexto Temporal
+            tempCtx.translate(canvasWidth / 2, canvasHeight / 2);
+            tempCtx.rotate(rotation * Math.PI / 180);
+            tempCtx.scale(imageTransforms.scaleX, imageTransforms.scaleY);
+            tempCtx.translate(-sourceWidth / 2, -sourceHeight / 2); // Mover origen para dibujar en (0,0) relativo
+
+            // 2. Dibujar el CONTENIDO ACTUAL del canvas visible en el canvas temporal
+            // Esto incluye la imagen base, filtros aplicados Y los dibujos del lápiz
+            try {
+                // console.log("Drawing visible canvas content onto temp canvas for saving"); // DEBUG
+                // Dibujar el canvas visible (que ya tiene filtros + dibujos) respetando su tamaño original
+                tempCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, sourceWidth, sourceHeight);
+            } catch (e) {
+                handleError("Error al copiar canvas para guardar.");
+                return;
+            }
+
+            // 3. Descargar
+            try {
+                link.href = tempCanvas.toDataURL('image/png');
+                link.download = 'imagen-dibujada.png'; // Nombre archivo actualizado
+                link.click();
+                // console.log("Image save initiated."); // DEBUG
+            } catch (error) { handleError("Error al generar el archivo para guardar."); console.error("Error al guardar:", error); }
+        }
+
+        // --- Event Listeners ---
+        // Lápiz
+        pencilSizeSlider.addEventListener('input', () => updatePencilControls());
+        pencilColorInput.addEventListener('input', () => updatePencilControls());
+        // Filtros y Ajustes
+        saturationSlider.addEventListener('input', applySettings); temperatureSlider.addEventListener('input', applySettings); tintSlider.addEventListener('input', applySettings);
+        brightnessSlider.addEventListener('input', applySettings); contrastSlider.addEventListener('input', applySettings); grayscaleSlider.addEventListener('input', applySettings);
+        blurSlider.addEventListener('input', applySettings); invertSlider.addEventListener('input', applySettings);
+
+        // Redraw on resize
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                // console.log("Window resize detected"); // DEBUG
+                // FIX: Al redimensionar, los dibujos se perderán porque redibujamos la imagen base.
+                // Para mantenerlos, necesitaríamos un canvas de dibujo separado.
+                // Por ahora, se acepta esta limitación.
+                drawImageWithFilters();
+                if (currentMode === 'cropping') { updateCropOverlayPosition(); }
+            }, 150);
+        });
+
+        // Initial setup
+        enableControls(false);
+
+    </script>
+
+</body>
+</html>
