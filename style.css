@@ -1,0 +1,210 @@
+/* --- Reset Básico y Variables CSS --- */
+:root {
+    --bg-color: #282c34;
+    --sidebar-bg: #21252b;
+    --text-color: #abb2bf;
+    --primary-color: #61afef;
+    --secondary-color: #c678dd;
+    --border-color: #3b4048;
+    --input-bg: #1e2228;
+    --pre-bg: #1e2228;
+    --pre-text: #e2e2e2;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-size: 14px;
+}
+
+/* --- Contenedor Principal --- */
+.app-container {
+    display: flex;
+    background-color: var(--sidebar-bg); /* Usar color de sidebar para unificar */
+    width: 95vw;
+    height: 90vh;
+    max-width: 1400px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    overflow: hidden; /* Asegura que el contenido no se salga */
+}
+
+/* --- Columna Principal (Izquierda) --- */
+.main-content {
+    flex-grow: 1; /* Ocupa el espacio restante */
+    padding: 20px;
+    display: flex;
+    flex-direction: column; /* Para alinear mensaje y pre */
+    justify-content: center; /* Centrar contenido verticalmente */
+    align-items: center; /* Centrar contenido horizontalmente */
+    background-color: var(--bg-color); /* Fondo distinto al sidebar */
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto; /* Scroll si el pre es muy alto */
+    position: relative; /* Para posicionar drop overlay */
+}
+
+#initialMessage {
+    text-align: center;
+    color: #666; /* Color más tenue */
+}
+#initialMessage i {
+    color: #444;
+    margin-bottom: 15px;
+}
+
+#asciiOutput {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: clamp(6px, 1.2vw, 12px); /* Tamaño adaptable */
+    line-height: 0.9; /* Muy juntas las líneas */
+    white-space: pre;
+    background-color: var(--pre-bg);
+    color: var(--pre-text);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 15px;
+    width: 100%; /* Ocupa todo el ancho de main-content */
+    max-height: 100%; /* Ocupa altura disponible */
+    overflow: auto; /* Scroll si es necesario */
+    display: none; /* Oculto inicialmente */
+}
+
+/* Estilos para Drag & Drop */
+.main-content.dragover {
+    background-color: #3a3f4a; /* Color de fondo al arrastrar */
+    border: 2px dashed var(--primary-color);
+}
+.main-content.dragover #initialMessage p::after {
+    content: "\A ¡Suelta la imagen!"; /* Salto de línea */
+    white-space: pre;
+    display: block;
+    color: var(--primary-color);
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+
+/* --- Barra Lateral (Derecha) --- */
+.sidebar {
+    width: 300px;
+    flex-shrink: 0; /* Evita que se encoja */
+    background-color: var(--sidebar-bg);
+    padding: 20px;
+    overflow-y: auto; /* Scroll si hay muchas opciones */
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Espacio entre elementos principales */
+}
+
+.sidebar h2, .sidebar h3 {
+    color: var(--primary-color);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Espacio entre icono y texto */
+}
+.sidebar h3 {
+    color: var(--secondary-color);
+    font-size: 1.1em;
+    margin-bottom: 10px;
+}
+
+.options-group {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+}
+
+/* --- Controles --- */
+.sidebar label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--text-color);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.sidebar label.checkbox-label {
+    display: flex;
+    align-items: center;
+    margin-top: 15px;
+    cursor: pointer;
+}
+
+
+.sidebar input[type="number"],
+.sidebar select {
+    width: 100%;
+    padding: 8px 10px;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    margin-bottom: 15px;
+    font-size: 1em;
+}
+.sidebar input[type="number"]:focus,
+.sidebar select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(97, 175, 239, 0.3);
+}
+
+.sidebar input[type="checkbox"] {
+    margin-right: 8px;
+    accent-color: var(--primary-color); /* Color del check */
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+
+/* --- Botones --- */
+.btn {
+    display: inline-flex; /* Para alinear icono y texto */
+    align-items: center;
+    justify-content: center;
+    gap: 8px; /* Espacio entre icono y texto */
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    background-color: #4a505a; /* Color base boton secundario */
+    color: var(--text-color);
+    width: 100%; /* Ocupar ancho */
+    margin-bottom: 5px; /* Espacio debajo */
+}
+.btn:hover {
+     background-color: #5a606a;
+     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: #fff; /* Texto blanco para mejor contraste */
+}
+.btn-primary:hover {
+    background-color: #75c0ff;
+}
+
+
+/* --- Ocultar Canvas --- */
+#imageCanvas {
+    display: none;
+}
